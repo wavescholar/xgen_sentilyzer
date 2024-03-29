@@ -1,0 +1,31 @@
+google-cloud-storage
+google-cloud-aiplatform
+openai
+streamlit
+debugpy
+matplotlib
+scikit-learn
+jupyter
+tensorboard
+torchtext
+portalocker # for the t5 sentiment demo
+HolisticTraceAnalysis
+
+huggingface_hub
+transformers
+datasets
+
+
+#For xgen model
+tiktoken
+accelerate
+bitsandbytes
+trl
+peft
+
+#For feature attribution
+captum
+flask-compress
+matplotlib
+
+jupyter
