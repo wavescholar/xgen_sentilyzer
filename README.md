@@ -29,15 +29,20 @@ The get_finbert_data_split in finber_utils.py gives us the train test validate s
 
 When comparing xgen fine-tuned results, we use the test set from the 50% agreement data. There's an option for using the data stored on Huggingface, which has all the levels of agreement. It's useful to see how performance varies according to the level of agreement.
 
-
-# Results
-
-This is a summary of results, the results folder contains selected experiments with crosstabs and logs.
-
 Cohen's Weighted Kappa was used as a metric for comapring the ordinal classification capabilities of the models. This is better than simply reporting accuracy. The Cohen Kappa takes into account that it would be worse to classify something negative as positive versus classifying something negative as neutral. 
 See here for more;
 
-[https://scikit-learn.org/stable/modules/generated/sklearn.metrics.cohen_kappa_score.html]
-[https://www.datanovia.com/en/lessons/weighted-kappa-in-r-for-two-ordinal-variables/]
+https://scikit-learn.org/stable/modules/generated/sklearn.metrics.cohen_kappa_score.html
 
+https://www.datanovia.com/en/lessons/weighted-kappa-in-r-for-two-ordinal-variables/
 
+# Results
+
+This is a summary of the results. The results folder contains selected experiments with crosstabs and logs. The initial sample size reported here is a very minimal 30 due to lack of vRAM for GPU. We note OpenAI had trouble distinguishing neutral text in many of the experiments. We'll update to GPT-4 in the future. 
+
+| Model                 | Kappa  | Accuracy  |   
+|-----------------------|--------|-----------|
+| Finbert               |  0.77  |  0.83     |   
+| Google Gemini         |  0.72  |  0.73     |   
+| Open AI GPT-3.5Turbo  |  0.43  |  0.57     |   
+| Xgen_fine Tuned       |  0.92  |  0.93     |   
