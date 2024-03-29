@@ -7,6 +7,7 @@ We test OpenAI, Google Gemini, a fine-tuned BERT model, and Saleforce's open-sou
 - sentences_66agree
 - sentences_75agree
 - sentences_allagree
+*Malo, P., Sinha, A., Takala, P., Korhonen, P. and Wallenius, J. (2013): “Good debt or bad debt: Detecting semantic orientations in economic texts.” Journal of the American Society for Information Science and Technology.*
 
 The original data is located here:
 https://www.researchgate.net/publication/251231364_FinancialPhraseBank-v10
@@ -28,6 +29,15 @@ The get_finbert_data_split in finber_utils.py gives us the train test validate s
 When comparing xgen fine-tuned results, we use the test set from the 50% agreement data. There's an option for using the data stored on Huggingface, which has all the levels of agreement. It's useful to see how performance varies according to the level of agreement.
 
 
+# Results
 
-<cite> Malo, P., Sinha, A., Takala, P., Korhonen, P. and Wallenius, J. (2013): “Good debt or bad debt: Detecting semantic orientations in economic texts.” Journal of the American Society for Information Science and Technology.</cite>
+This is a summary of results, the results folder contains selected experiments with crosstabs and logs.
+
+Cohen's Weighted Kappa was used as a metric for comapring the ordinal classification capabilities of the models. This is better than simply reporting accuracy. The Cohen Kappa takes into account that it would be worse to classify something negative as positive versus classifying something negative as neutral. 
+See here for more;
+*
+https://scikit-learn.org/stable/modules/generated/sklearn.metrics.cohen_kappa_score.html
+https://www.datanovia.com/en/lessons/weighted-kappa-in-r-for-two-ordinal-variables/
+*
+
 
