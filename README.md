@@ -1,8 +1,8 @@
 # XGen Financial Sentiment 
 
-This repo is for fine-tuning a Saleforce xgen model financial sentiment data.  We then test it out against various large language models.
+This repo is for fine-tuning a Saleforce xgen model financial sentiment data and evaluating it against various large language models.
 
-We test OpenAI, Google Gemini, a fine-tuned BERT model, and Saleforce's open-source xgen model. We're comparing the ability to classify financial sentiment data into three ordinal classes: negative, neutral, and positive. The data is labeled by independent experts and is partitioned into four levels of agreement:
+We test OpenAI, Google Gemini, a fine-tuned BERT model, and Saleforce's open-source xgen model. We're comparing the ability to classify financial sentiment data into three ordinal classes: negative, neutral, and positive. A group of 16 individuals, all possessing relevant expertise in financial markets, carried out annotations on a curated set of phrases. This group comprised three researchers and thirteen master's students from Aalto University School of Business, specializing mainly in finance, accounting, and economics. Due to the significant overlap in annotations, with each sentence receiving between 5 to 8 annotations, multiple approaches exist for establishing a gold standard through majority consensus. There are four distinct reference datasets, each derived from the degree of majority concurrence.
 - sentences_50agree
 - sentences_66agree
 - sentences_75agree
@@ -28,4 +28,6 @@ The get_finbert_data_split in finber_utils.py gives us the train test validate s
 When comparing xgen fine-tuned results, we use the test set from the 50% agreement data. There's an option for using the data stored on Huggingface, which has all the levels of agreement. It's useful to see how performance varies according to the level of agreement.
 
 
+
+<cite> Malo, P., Sinha, A., Takala, P., Korhonen, P. and Wallenius, J. (2013): “Good debt or bad debt: Detecting semantic orientations in economic texts.” Journal of the American Society for Information Science and Technology.</cite>
 
