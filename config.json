@@ -8,6 +8,7 @@
       "base_dir": "./data"
     },
     "model_params": {
+      "k_shot" : 3,
       "openai": {"openai_model": "gpt-3.5-turbo",
       "temperature": 0.5,
       "max_tokens": 1024,

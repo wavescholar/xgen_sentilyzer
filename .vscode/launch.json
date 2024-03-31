@@ -7,18 +7,18 @@
 
 
         {
-            "name": "Python: openai_google_sentiment_experiment.py",
+            "name": "Python: run_sentiment_experiment.py",
             "type": "debugpy",
             "request": "launch",
-            "program": "${workspaceFolder}/src/openai_google_sentiment_experiment.py",
+            "program": "${workspaceFolder}/src/run_sentiment_experiment.py",
             "console": "integratedTerminal",
             "justMyCode": true,
             "args": [
                 "--verbose",
                 "--samples_per_class",
-                "20",
+                "10",
                 "--agreement",
-                "TEST"
+                "sentences_50agree"
             ]
         },
         {

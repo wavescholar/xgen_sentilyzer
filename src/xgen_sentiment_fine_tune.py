@@ -74,25 +74,15 @@ if DO_TEST:
     del model
     del tokenizer
 
+training_epochs = 50
 
 # Model from HF
 base_model = "Salesforce/xgen-7b-8k-base"
 
-# New instruction dataset
-guanaco_dataset = "mlabonne/guanaco-llama2-1k"
-
 # Fine-tuned model
-new_model = "xgen-7b-8k-tuned"
+new_model = "xgen-7b-8k-tuned_" + str(training_epochs) + "epochs"
 
-# # Fine-tune the model
-# logging.debug("xgen------ Load dataset ")
-# dataset = load_dataset(guanaco_dataset, split="train")
-
-# logging.debug("xgen------ Checking for debug mode ")
-# DEBUG_MODE = True
-# logging.debug("xgen------ Setting up debug mode only running 100 rows ")
-# if DEBUG_MODE:
-#     dataset = dataset.select(range(100))
+logging.debug("xgen------ Set up dataset ")
 
 import pandas as pd
 
@@ -148,7 +138,7 @@ peft_params = LoraConfig(
 logging.debug("xgen------ Set up training args ")
 training_params = TrainingArguments(
     output_dir="./results",
-    num_train_epochs=20,
+    num_train_epochs=training_epochs,
     per_device_train_batch_size=1,
     gradient_accumulation_steps=1,
     optim="paged_adamw_32bit",
@@ -192,25 +182,35 @@ trainer.model.save_pretrained(new_model)
 # We had to use transformer 4.33 to avoid the issue with saving
 trainer.tokenizer.save_pretrained(new_model)  # , add_special_tokens=True)
 
-# load it back using the AutoModelForCausalLM class again:
-tokenizer_fine_tuned_xgen = AutoTokenizer.from_pretrained(
-    new_model, trust_remote_code=True
-)
 
-fine_tuned_xgen = AutoModelForCausalLM.from_pretrained("xgen-7b-8k-tuned")
+def test_fine_tuned():
+    logging.debug("xgen------ Load fine-tuned model ")
 
-prompt = "Classify the text into neutral, negative, or positive. Text: Comparable operating profit for the quarter decreased from EUR510m while sales increased from EUR860m , as compared to the third quarter 2007"
+    # load it back using the AutoModelForCausalLM class again:
+    tokenizer_fine_tuned_xgen = AutoTokenizer.from_pretrained(
+        new_model, trust_remote_code=True
+    )
 
-pipe = pipeline(
-    task="text-generation",
-    model=fine_tuned_xgen,
-    tokenizer=tokenizer_fine_tuned_xgen,
-    max_length=200,
-    device=device,
-    torch_dtype=torch.bfloat16,
-)
+    fine_tuned_xgen = AutoModelForCausalLM.from_pretrained("xgen-7b-8k-tuned")
 
-result = pipe(f"<s>[INST] {prompt} [/INST]")
-print(result[0]["generated_text"])
+    prompt = "Classify the text into neutral, negative, or positive. Text: Comparable operating profit for the quarter decreased from EUR510m while sales increased from EUR860m , as compared to the third quarter 2007"
 
-print(42)
+    pipe = pipeline(
+        task="text-generation",
+        model=fine_tuned_xgen,
+        tokenizer=tokenizer_fine_tuned_xgen,
+        max_length=200,
+        device=device,
+        torch_dtype=torch.bfloat16,
+    )
+
+    result = pipe(f"<s>[INST] {prompt} [/INST]")
+    print(result[0]["generated_text"])
+
+
+if DO_TEST:
+    test_fine_tuned()
+
+logging.debug("xgen------ Done ")
+
+

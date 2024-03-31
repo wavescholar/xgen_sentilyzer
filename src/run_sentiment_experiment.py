@@ -14,66 +14,26 @@ https://www.datanovia.com/en/lessons/weighted-kappa-in-r-for-two-ordinal-variabl
 """
 
 import argparse
+import os
 import sys
 import numpy as np
 import json
+from random import randint
+from time import sleep
+import logging
+from datetime import datetime
+from pathlib import Path
+import pandas as pd
+from sklearn.model_selection import train_test_split
 
 from huggingface_utils import load_huggingface_data
 from finbert_utils import get_finbert_response
 from openai_utils import get_openai_response
 from google_gemini_utils import get_gemini_response, get_gemini_model
 
-
-import pandas as pd
 from sklearn.metrics import cohen_kappa_score
 
-from random import randint
-from time import sleep
-
-import logging
-
-# get date and time
-from datetime import datetime
-
-from pathlib import Path
-
-
-# from xgen_utils import load_finbert_test_set
-def load_finbert_test_set(samples_per_class):
-
-    # Load the test set
-    sentiment_test_df = pd.read_csv(
-        "data/finBERT_TRAIN_TEST_VALIDATE/test.csv", sep="\t"
-    )
-    sentiment_test_df = sentiment_test_df[["text", "label"]]
-
-    min_samples_per_class = 0
-    class_distribution = sentiment_test_df["label"].value_counts()
-    min_samples_per_class = max(min_samples_per_class, class_distribution.min())
-
-    if min_samples_per_class < samples_per_class:
-        samples_per_class = min_samples_per_class
-        logging.warn(
-            "Reducing samples per class from "
-            + str(samples_per_class)
-            + " to "
-            + str(min_samples_per_class)
-        )
-    else:
-        logging.info("samples_per_class = " + str(samples_per_class))
-
-    # Group the DataFrame by the label column
-    grouped_train_df = sentiment_test_df.groupby("label")
-
-    # Sample a specified number of rows from each group
-    random_state = 42  # Set a random state for reproducibility
-    logging.info("random_state = " + str(random_state))
-
-    sampled_df = grouped_train_df.sample(n=samples_per_class, random_state=random_state)
-
-    # Combine the sampled rows into a new DataFrame
-    sentiment_test_df = sampled_df.reset_index(drop=True)
-    return sentiment_test_df
+from finbert_utils import load_finbert_test_set
 
 
 now = datetime.now()
@@ -112,6 +72,7 @@ logging.info("---------" + dt_string + "----------")
 def run_kappa_calculation(
     samples_per_class,
     agreement,
+    k_shot,
     openai_model,
     gemini_model,
     api_sleep_min,
@@ -143,6 +104,8 @@ def run_kappa_calculation(
 
         num_samples = num_classes * samples_per_class
 
+        k_shot_samples = k_shot * num_classes
+
         # Group the DataFrame by the label column
         grouped_train_df = eval_df.groupby("label")
 
@@ -150,12 +113,27 @@ def run_kappa_calculation(
         random_state = 42  # Set a random state for reproducibility
         logging.info("random_state = " + str(random_state))
 
-        sampled_df = grouped_train_df.sample(
-            n=samples_per_class, random_state=random_state
+        # Sample the number needed for eval plus the prompt
+        sample_df = grouped_train_df.sample(
+            n=samples_per_class + k_shot, random_state=random_state
         )
+        eval_df = sample_df.reset_index(drop=True)
 
-        # Combine the sampled rows into a new DataFrame
-        eval_df = sampled_df.reset_index(drop=True)
+        # Peel off the number needed for k_shot prompt
+        eval_df, k_shot_df = train_test_split(
+            eval_df[["sentence", "label"]],
+            stratify=eval_df["label"],
+            train_size=num_samples,
+            test_size=k_shot_samples,
+        )
+        eval_df = eval_df.reset_index(drop=True)
+        k_shot_df = k_shot_df.reset_index(drop=True)
+
+        logging.info("Head eval data")
+        for i, data in eval_df.iterrows():
+            if i > 10:
+                break
+
         eval_df.to_csv(
             base_data_directory
             + "/wavelang_eval_data_{:%Y-%m-%d-%H-%M}.csv".format(now)
@@ -167,7 +145,7 @@ def run_kappa_calculation(
         eval_df.rename(columns={"text": "sentence"}, inplace=True)
 
         # The training data class labels as given by the original data set
-        # do not match the Huggin face dataset -  we need to map
+        # do not match the Hugging face dataset -  we need to map
         label_map_training_data = {"negative": "0", "neutral": "1", "positive": "2"}
         for i, data in eval_df.iterrows():
             eval_df.at[i, "label"] = label_map_training_data[data["label"]]
@@ -178,9 +156,23 @@ def run_kappa_calculation(
             break
         logging.info(str(i) + "---" + data["sentence"] + "---" + str(data["label"]))
 
-    zero_shot_prompt_system = (
-        "Classify the text into neutral, negative, or positive. Text: "
-    )
+    system_prompt = "Classify the sentiment of the following news text into neutral, negative, or positive. "
+
+    # Prepare the k_shot prompt
+    k_shot_prompt = system_prompt
+    for i, data in k_shot_df.iterrows():
+        k_shot_prompt += (
+            str(i + 1)
+            + ". Text :"
+            + data["sentence"]
+            + os.linesep
+            + "Sentiment: "
+            + label_map[data["label"]]
+            + os.linesep
+        )
+
+    logging.info("k_shot_prompt = " + k_shot_prompt)
+    print(k_shot_prompt)
 
     df = pd.DataFrame(
         columns=[
@@ -199,12 +191,12 @@ def run_kappa_calculation(
         if i > num_samples:
             break
 
-        prompt = zero_shot_prompt_system + data["sentence"]
+        prompt = k_shot_prompt + data["sentence"]
 
         num_prompt_tokens = len(prompt.split())
 
         openai_response = get_openai_response(
-            zero_shot_prompt_system, data["sentence"], openai_model
+            k_shot_prompt, data["sentence"], openai_model
         )
         logging.info(
             "OpenAI--"
@@ -226,6 +218,7 @@ def run_kappa_calculation(
             + label_map[data["label"]]
         )
 
+        # We don't use k_shot here
         finbert_response = get_finbert_response(data["sentence"])
 
         logging.info(
@@ -389,7 +382,6 @@ if __name__ == "__main__":
                 key, value = value.split("=")
                 getattr(namespace, self.dest)[key] = value
 
-    # Pass in args like this --verbose --kwargs api_key='kv' things2='val' ...
     parser = argparse.ArgumentParser()
     parser.add_argument("--verbose", action="store_true", help="enable verbose output")
     parser.add_argument(
@@ -412,11 +404,17 @@ if __name__ == "__main__":
     with open("config.json", "r") as f:
         config = json.load(f)
 
+    logger.info("JSON Parameters : ")
+    logger.info(json.dumps(config, indent=4))
+
     # Getting configuration data
     api_sleep_min = config["system"]["api_sleep_min"]
     api_sleep_max = config["system"]["api_sleep_max"]
     logging.info("api_sleep_min : " + str(api_sleep_min))
     logging.info("api_sleep_max : " + str(api_sleep_max))
+
+    k_shot = config["model_params"]["k_shot"]
+    logging.info("k shot k : " + str(k_shot))
 
     openai_model = config["model_params"]["openai"]["openai_model"]
     logging.info("openai_model : " + str(openai_model))
@@ -451,6 +449,7 @@ if __name__ == "__main__":
             run_kappa_calculation(
                 args.samples_per_class,
                 agreement,
+                k_shot,
                 openai_model,
                 gemini_model,
                 api_sleep_min,
@@ -460,6 +459,7 @@ if __name__ == "__main__":
         run_kappa_calculation(
             args.samples_per_class,
             "TEST",
+            k_shot,
             openai_model,
             gemini_model,
             api_sleep_min,
@@ -469,6 +469,7 @@ if __name__ == "__main__":
         run_kappa_calculation(
             args.samples_per_class,
             agreement,
+            k_shot,
             openai_model,
             gemini_model,
             api_sleep_min,

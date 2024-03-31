@@ -1,3 +1,6 @@
+#This code runs the fine tuned xgen model trained on the financial news dataset 
+# https://www.researchgate.net/publication/251231364_FinancialPhraseBank-v10
+
 import os
 import numpy as np
 import torch
@@ -16,7 +19,6 @@ from transformers import (
 from peft import LoraConfig
 from trl import SFTTrainer
 
-
 from random import randint
 from time import sleep
 import logging
@@ -29,12 +31,10 @@ from feature_attribution import feature_ablation
 now = datetime.now()
 dt_string = now.strftime("%d/%m/%Y %H:%M:%S")
 
-
 Path("./data").mkdir(parents=True, exist_ok=True)
 
-# model_name = "xgen-7b-8k-base"
-model_name = "xgen-7b-8k-tuned"
 
+model_name = "xgen-7b-8k-tuned"
 
 base_data_directory = (
     "./data/" + "wavelang_" + model_name + "_{:%Y-%m-%d-%H-%M}".format(now)
@@ -60,7 +60,7 @@ logger.addHandler(ch)
 
 
 # Attempt to estimate model size in memory - this inference takes a long time
-# probabley swapping from gpu to memory
+# The model does not fit on a RTX 3080 ti
 def get_model_size(model):
 
     param_size = 0
@@ -74,12 +74,10 @@ def get_model_size(model):
 
     return model_size
 
-
 logging.debug("xgen------ Set device ")
 device = "cuda:0" if torch.cuda.is_available() else "cpu"
 
 logging.debug("xgen------ Device = " + device)
-
 
 logging.debug("xgen------ Load the pre-trained model")
 
@@ -92,9 +90,6 @@ elif model_name == "xgen-7b-8k-base":
     )
 else:
     raise "Bad model name : " + model_name + " - must be xgen-7b-8k-tuned or xgen-7b-8k-base"
-
-    # bbcrevisit - we do this in the pipe
-    # xgen_model = xgen_model.to(device)
 
 model_size = get_model_size(xgen_model)
 
@@ -204,6 +199,9 @@ df = pd.DataFrame(
 num_samples = len(sentiment_test_df)
 logging.info("num_samples = " + str(num_samples))
 
+# Still debugging this. I expect the Captum library needs updating. 
+run_feature_attribution = False
+
 for i, data in sentiment_test_df.iterrows():
     if i > num_samples:
         break
@@ -219,16 +217,15 @@ for i, data in sentiment_test_df.iterrows():
         xgen_model_sentiment,
         data["label"],
     ]
-
-    feature_ablation(
-        model=xgen_model.model,
-        tokenizer=tokenizer,
-        eval_prompt=prompt,
-        target=xgen_model_sentiment,
-        save_path=base_data_directory,
-        sample_id=str(i),
-    )
-
+    if run_feature_attribution==True:
+        feature_ablation(
+            model=xgen_model.model,
+            tokenizer=tokenizer,
+            eval_prompt=prompt,
+            target=xgen_model_sentiment,
+            save_path=base_data_directory,
+            sample_id=str(i),
+        )
 
 xgen_sentiment_scores = df["xgenft_sentiment"].tolist()
 
@@ -276,14 +273,3 @@ xgenft_accuracy = np.diag(tab).sum() / tab.to_numpy().sum()
 logging.info("xgenft Accuracy : " + str("{:.2f}".format(xgenft_accuracy)))
 
 
-def test_xgen(
-    text="The contract incorporates a Convergent Charging rating solution for voice and data , which includes Internet , GPRS , SMS , MMS and WAP",
-):
-    prompt = system_prompt + text
-
-    result = get_xgen_model_response(prompt)
-
-    return result
-
-
-test_result = test_xgen()

@@ -1,67 +1,70 @@
+import argparse
+import pandas as pd
+from sklearn.model_selection import train_test_split
+import os
 from transformers import AutoTokenizer, AutoModelForSequenceClassification
+import logging
+import pandas as pd
 
 finbert_tokenizer = AutoTokenizer.from_pretrained("ProsusAI/finbert")
 finbert_model = AutoModelForSequenceClassification.from_pretrained("ProsusAI/finbert")
-import pandas as pd
-
-import logging
 
 
-# Set the number of samples per class for the training set and the number of classes in the dataset
+# # Set the number of samples per class for the training set and the number of classes in the dataset
 
-samples_per_class = 20
-agreement = "TEST"
-num_classes = 3
-
-
-def load_finbert_train_set(samples_per_class):
-
-    # Load the test set
-    sentiment_test_df = pd.read_csv(
-        "data/finBERT_TRAIN_TEST_VALIDATE/train.csv", sep="\t"
-    )
-    sentiment_test_df = sentiment_test_df[["text", "label"]]
-    num_samples = len(sentiment_test_df)  # Get the number of samples in the test set
-
-    # Calculate the minimum number of samples per class
-    # This is to ensure that we have a balanced dataset
-
-    min_samples_per_class = 0
-    class_distribution = sentiment_test_df["label"].value_counts()
-    min_samples_per_class = max(min_samples_per_class, class_distribution.min())
-
-    if min_samples_per_class < samples_per_class:
-        samples_per_class = min_samples_per_class
-        logging.warn(
-            "Reducing samples per class from "
-            + str(samples_per_class)
-            + " to "
-            + str(min_samples_per_class)
-        )
-    else:
-        logging.info("samples_per_class = " + str(samples_per_class))
-
-    # Group the DataFrame by the label column
-    grouped_train_df = sentiment_test_df.groupby("label")
-
-    # Sample a specified number of rows from each group
-    random_state = 42  # Set a random state for reproducibility
-    logging.info("random_state = " + str(random_state))
-
-    sampled_df = grouped_train_df.sample(n=samples_per_class, random_state=random_state)
-
-    # Combine the sampled rows into a new DataFrame
-    sentiment_test_df = sampled_df.reset_index(drop=True)
-    return sentiment_test_df
+# samples_per_class = 20
+# agreement = "TEST"
+# num_classes = 3
 
 
-k = 3
-samples_per_class = 1
-train_df = load_finbert_train_set(1)
+# def load_finbert_train_set(samples_per_class):
 
-zero_shot_prompt_system = (
-    "Classify the text into neutral, negative, or positive. Text: "
-)
+#     # Load the test set
+#     sentiment_test_df = pd.read_csv(
+#         "data/finBERT_TRAIN_TEST_VALIDATE/train.csv", sep="\t"
+#     )
+#     sentiment_test_df = sentiment_test_df[["text", "label"]]
+#     num_samples = len(sentiment_test_df)  # Get the number of samples in the test set
+
+#     # Calculate the minimum number of samples per class
+#     # This is to ensure that we have a balanced dataset
+
+#     min_samples_per_class = 0
+#     class_distribution = sentiment_test_df["label"].value_counts()
+#     min_samples_per_class = max(min_samples_per_class, class_distribution.min())
+
+#     if min_samples_per_class < samples_per_class:
+#         samples_per_class = min_samples_per_class
+#         logging.warn(
+#             "Reducing samples per class from "
+#             + str(samples_per_class)
+#             + " to "
+#             + str(min_samples_per_class)
+#         )
+#     else:
+#         logging.info("samples_per_class = " + str(samples_per_class))
+
+#     # Group the DataFrame by the label column
+#     grouped_train_df = sentiment_test_df.groupby("label")
+
+#     # Sample a specified number of rows from each group
+#     random_state = 42  # Set a random state for reproducibility
+#     logging.info("random_state = " + str(random_state))
+
+#     sampled_df = grouped_train_df.sample(n=samples_per_class, random_state=random_state)
+
+#     # Combine the sampled rows into a new DataFrame
+#     sentiment_test_df = sampled_df.reset_index(drop=True)
+#     return sentiment_test_df
+
+
+# k = 3
+# samples_per_class = 1
+# train_df = load_finbert_train_set(1)
+
+# zero_shot_prompt_system = (
+#     "Classify the text into neutral, negative, or positive. Text: "
+# )
 
 
 def get_finbert_response(sentence):
@@ -107,10 +110,6 @@ def get_finbert_response(sentence):
 
 # This is the split code from the finbert repo. The code operates on the dataset
 # which is available here : https://www.researchgate.net/publication/251231364_FinancialPhraseBank-v10
-import argparse
-import pandas as pd
-from sklearn.model_selection import train_test_split
-import os
 
 
 def get_finbert_data_split():
@@ -132,3 +131,40 @@ def get_finbert_data_split():
     train.to_csv("data/sentiment_data/train.csv", sep="\t")
     test.to_csv("data/sentiment_data/test.csv", sep="\t")
     valid.to_csv("data/sentiment_data/validation.csv", sep="\t")
+
+
+def load_finbert_test_set(samples_per_class):
+
+    # Load the test set
+    sentiment_test_df = pd.read_csv(
+        "data/finBERT_TRAIN_TEST_VALIDATE/test.csv", sep="\t"
+    )
+    sentiment_test_df = sentiment_test_df[["text", "label"]]
+
+    min_samples_per_class = 0
+    class_distribution = sentiment_test_df["label"].value_counts()
+    min_samples_per_class = max(min_samples_per_class, class_distribution.min())
+
+    if min_samples_per_class < samples_per_class:
+        samples_per_class = min_samples_per_class
+        logging.warn(
+            "Reducing samples per class from "
+            + str(samples_per_class)
+            + " to "
+            + str(min_samples_per_class)
+        )
+    else:
+        logging.info("samples_per_class = " + str(samples_per_class))
+
+    # Group the DataFrame by the label column
+    grouped_train_df = sentiment_test_df.groupby("label")
+
+    # Sample a specified number of rows from each group
+    random_state = 42  # Set a random state for reproducibility
+    logging.info("random_state = " + str(random_state))
+
+    sampled_df = grouped_train_df.sample(n=samples_per_class, random_state=random_state)
+
+    # Combine the sampled rows into a new DataFrame
+    sentiment_test_df = sampled_df.reset_index(drop=True)
+    return sentiment_test_df
