@@ -13,7 +13,6 @@ https://www.datanovia.com/en/lessons/weighted-kappa-in-r-for-two-ordinal-variabl
 
 """
 
-import argparse
 import os
 import sys
 import numpy as np
@@ -372,33 +371,6 @@ def run_kappa_calculation(
 if __name__ == "__main__":
 
     logging.info("wavelang driver : args ")
-    for arg in sys.argv:
-        logging.info(arg)
-
-    class ParseKwargs(argparse.Action):
-        def __call__(self, parser, namespace, values, option_string=None):
-            setattr(namespace, self.dest, dict())
-            for value in values:
-                key, value = value.split("=")
-                getattr(namespace, self.dest)[key] = value
-
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--verbose", action="store_true", help="enable verbose output")
-    parser.add_argument(
-        "--samples_per_class", help="number of examples from each class", type=int
-    )
-    parser.add_argument(
-        "--agreement",
-        help="Percentage of agreement of annotators use RUN_ALL to run them all : sentences_50agree Number| sentences_66agree |sentences_75agree |sentences_allagree",
-    )
-
-    args = parser.parse_args()
-    logger.info("Args parsed : " + str(args))
-
-    if args.verbose:
-        logging.basicConfig(level=logging.DEBUG)
-    else:
-        logging.basicConfig(level=logging.INFO)
 
     # Load the configuration file
     with open("config.json", "r") as f:
@@ -406,6 +378,13 @@ if __name__ == "__main__":
 
     logger.info("JSON Parameters : ")
     logger.info(json.dumps(config, indent=4))
+
+    if config["system"]["log_level"] == "DEBUG":
+        logging.basicConfig(level=logging.DEBUG)
+    elif config["system"]["log_level"] == "INFO":
+        logging.basicConfig(level=logging.INFO)
+    else:
+        logging.basicConfig(level=logging.WARN)
 
     # Getting configuration data
     api_sleep_min = config["system"]["api_sleep_min"]

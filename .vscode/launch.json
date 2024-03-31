@@ -12,14 +12,7 @@
             "request": "launch",
             "program": "${workspaceFolder}/src/run_sentiment_experiment.py",
             "console": "integratedTerminal",
-            "justMyCode": true,
-            "args": [
-                "--verbose",
-                "--samples_per_class",
-                "10",
-                "--agreement",
-                "sentences_50agree"
-            ]
+            "justMyCode": false
         },
         {
             "name": "Python: Current File",

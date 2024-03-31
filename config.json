@@ -1,6 +1,8 @@
 {
     "system": {
-        "log_level": "info",
+        "log_level": "DEBUG",
+        "samples_per_class": 3,
+        "agreement": "sentences_50agree",
         "api_sleep_min" : 10,
         "api_sleep_max" : 45
       },
