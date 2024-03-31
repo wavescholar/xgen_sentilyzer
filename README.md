@@ -29,7 +29,7 @@ The get_finbert_data_split in finber_utils.py gives us the train test validate s
 
 When comparing xgen fine-tuned results, we use the test set from the 50% agreement data. There's an option for using the data stored on Huggingface, which has all the levels of agreement. It's useful to see how performance varies according to the level of agreement.
 
-Cohen's Weighted Kappa was used as a metric for comapring the ordinal classification capabilities of the models. This is better than simply reporting accuracy. The Cohen Kappa takes into account that it would be worse to classify something negative as positive versus classifying something negative as neutral. 
+Cohen's Weighted Kappa was used as a metric for comparing the ordinal classification capabilities of the models. This is better than simply reporting accuracy, which we also record. Cohen's weighted Kappa takes into account that it would be worse to classify something negative as positive than to classify something negative as neutral. 
 See here for more;
 
 https://scikit-learn.org/stable/modules/generated/sklearn.metrics.cohen_kappa_score.html
