@@ -34,6 +34,7 @@ from sklearn.metrics import cohen_kappa_score
 
 from finbert_utils import load_finbert_test_set
 
+from llama7b_utils import get_llama_response
 
 now = datetime.now()
 dt_string = now.strftime("%d/%m/%Y %H:%M:%S")
@@ -118,15 +119,16 @@ def run_kappa_calculation(
         )
         eval_df = sample_df.reset_index(drop=True)
 
-        # Peel off the number needed for k_shot prompt
-        eval_df, k_shot_df = train_test_split(
-            eval_df[["sentence", "label"]],
-            stratify=eval_df["label"],
-            train_size=num_samples,
-            test_size=k_shot_samples,
-        )
-        eval_df = eval_df.reset_index(drop=True)
-        k_shot_df = k_shot_df.reset_index(drop=True)
+        if k_shot > 0:
+            # Peel off the number needed for k_shot prompt
+            eval_df, k_shot_df = train_test_split(
+                eval_df[["sentence", "label"]],
+                stratify=eval_df["label"],
+                train_size=num_samples,
+                test_size=k_shot_samples,
+            )
+            eval_df = eval_df.reset_index(drop=True)
+            k_shot_df = k_shot_df.reset_index(drop=True)
 
         logging.info("Head eval data")
         for i, data in eval_df.iterrows():
@@ -157,21 +159,19 @@ def run_kappa_calculation(
 
     system_prompt = "Classify the sentiment of the following news text into neutral, negative, or positive. "
 
-    # Prepare the k_shot prompt
+    # Prepare the k_shot prompt if needed
     k_shot_prompt = system_prompt
-    for i, data in k_shot_df.iterrows():
-        k_shot_prompt += (
-            str(i + 1)
-            + ". Text :"
-            + data["sentence"]
-            + os.linesep
-            + "Sentiment: "
-            + label_map[data["label"]]
-            + os.linesep
-        )
-
-    logging.info("k_shot_prompt = " + k_shot_prompt)
-    print(k_shot_prompt)
+    if k_shot > 0:
+        for i, data in k_shot_df.iterrows():
+            k_shot_prompt += (
+                str(i + 1)
+                + ". Text :"
+                + data["sentence"]
+                + os.linesep
+                + "Sentiment: "
+                + label_map[data["label"]]
+                + os.linesep
+            )
 
     df = pd.DataFrame(
         columns=[
@@ -180,6 +180,7 @@ def run_kappa_calculation(
             "gemini_sentiment",
             "openai_sentiment",
             "finbert_sentiment",
+            "llama_sentiment",
             "ground_truth",
         ]
     )
@@ -190,13 +191,23 @@ def run_kappa_calculation(
         if i > num_samples:
             break
 
-        prompt = k_shot_prompt + data["sentence"]
+        prompt = (
+            k_shot_prompt
+            + os.linesep
+            + " Text: "
+            + data["sentence"]
+            + os.linesep
+            + " Sentiment: "
+        )
 
         num_prompt_tokens = len(prompt.split())
 
         openai_response = get_openai_response(
-            k_shot_prompt, data["sentence"], openai_model
+            k_shot_prompt,
+            os.linesep + " Text: " + data["sentence"] + os.linesep + " Sentiment: ",
+            openai_model,
         )
+
         logging.info(
             "OpenAI--"
             + prompt
@@ -222,9 +233,21 @@ def run_kappa_calculation(
 
         logging.info(
             "FinBERT--"
-            + prompt
+            + data["sentence"]
             + "   "
             + finbert_response
+            + " ground truth = "
+            + label_map[data["label"]]
+        )
+
+        # Llama gives poor results when k=0
+        llama_response = get_llama_response(prompt)
+
+        logging.info(
+            "Llama--"
+            + k_shot_prompt
+            + "   "
+            + llama_response
             + " ground truth = "
             + label_map[data["label"]]
         )
@@ -235,6 +258,7 @@ def run_kappa_calculation(
             gemini_response,
             openai_response,
             finbert_response,
+            llama_response,
             label_map[data["label"]],
         ]
 
@@ -268,6 +292,15 @@ def run_kappa_calculation(
     )
 
     logging.info("Finbert Cohen Kappa Score: " + str(kappa_finbert))
+
+    # ------------------------
+    llama_sentiment_scores = df["llama_sentiment"].tolist()
+
+    kappa_llama = cohen_kappa_score(
+        llama_sentiment_scores, ground_truth_scores, weights="linear"
+    )
+
+    logging.info("Llama Cohen Kappa Score: " + str(kappa_llama))
 
     # -----------------
     gemini_sentiment_classification_crosstab = pd.crosstab(
@@ -305,6 +338,18 @@ def run_kappa_calculation(
     )
     logging.info(finbert_sentiment_classification_crosstab)
 
+    # -----------------
+    llama_sentiment_classification_crosstab = pd.crosstab(
+        df.llama_sentiment, df.ground_truth, margins=True
+    )
+    llama_sentiment_classification_crosstab.loc["Grand Total"] = (
+        llama_sentiment_classification_crosstab.sum(numeric_only=True, axis=0)
+    )
+    llama_sentiment_classification_crosstab.loc[:, "Grand Total"] = (
+        llama_sentiment_classification_crosstab.sum(numeric_only=True, axis=1)
+    )
+    logging.info(llama_sentiment_classification_crosstab)
+
     logging.info("Saving sentiment classes to csv file")
     df.to_csv(base_data_directory + "/sentiment_classifications.csv")
 
@@ -319,6 +364,8 @@ def run_kappa_calculation(
         + str(samples_per_class * num_classes)
         + "_kappa_"
         + str("{:.2f}".format(kappa_gemini))
+        + "k_shot_"
+        + str(k_shot)
         + ".csv"
     )
 
@@ -333,6 +380,8 @@ def run_kappa_calculation(
         + str(samples_per_class * num_classes)
         + "_kappa_"
         + str("{:.2f}".format(kappa_openai))
+        + "k_shot_"
+        + str(k_shot)
         + ".csv"
     )
 
@@ -347,10 +396,28 @@ def run_kappa_calculation(
         + str(samples_per_class * num_classes)
         + "_kappa_"
         + str("{:.2f}".format(kappa_finbert))
+        + "k_shot_"
+        + str(k_shot)
         + ".csv"
     )
 
     finbert_sentiment_classification_crosstab.to_csv(finbert_crosstab_filename)
+
+    llama_crosstab_filename = (
+        base_data_directory
+        + "./llama_sentiment_crosstab_"
+        + "agreement_"
+        + agreement
+        + "_samples_"
+        + str(samples_per_class * num_classes)
+        + "_kappa_"
+        + str("{:.2f}".format(kappa_llama))
+        + "k_shot_"
+        + str(k_shot)
+        + ".csv"
+    )
+
+    llama_sentiment_classification_crosstab.to_csv(llama_crosstab_filename)
 
     # Accuracy Calculation
     tab = pd.crosstab(df.finbert_sentiment, df.ground_truth)
@@ -364,6 +431,10 @@ def run_kappa_calculation(
     tab = pd.crosstab(df.gemini_sentiment, df.ground_truth)
     gemini_accuracy = np.diag(tab).sum() / tab.to_numpy().sum()
     logging.info("Gemini Accuracy : " + str("{:.2f}".format(gemini_accuracy)))
+
+    tab = pd.crosstab(df.llama_sentiment, df.ground_truth)
+    llama_accuracy = np.diag(tab).sum() / tab.to_numpy().sum()
+    logging.info("Llama Accuracy : " + str("{:.2f}".format(llama_accuracy)))
 
     logging.info("Done.")
 
@@ -414,19 +485,22 @@ if __name__ == "__main__":
         class_distribution = eval_df["label"].value_counts()
         min_samples_per_class = max(min_samples_per_class, class_distribution.min())
 
-    if args.samples_per_class > min_samples_per_class:
+    samples_per_class = config["system"]["samples_per_class"]
+    agreement_set = config["system"]["agreement"]
+
+    if config["system"]["samples_per_class"] > min_samples_per_class:
         logging.warn(
             "Overriding samples_per_class to min value : " + str(min_samples_per_class)
         )
-        args.samples_per_class = min_samples_per_class
+        samples_per_class = min_samples_per_class
 
-    logging.info("samples_per_class : " + str(args.samples_per_class))
+    logging.info("samples_per_class : " + str(samples_per_class))
 
-    if args.agreement == "RUN_ALL":
+    if agreement_set == "RUN_ALL":
         for agreement in agreements:
             logging.info("Running agreement : " + agreement)
             run_kappa_calculation(
-                args.samples_per_class,
+                samples_per_class,
                 agreement,
                 k_shot,
                 openai_model,
@@ -434,9 +508,9 @@ if __name__ == "__main__":
                 api_sleep_min,
                 api_sleep_max,
             )
-    elif args.agreement == "TEST":
+    elif agreement_set == "TEST":
         run_kappa_calculation(
-            args.samples_per_class,
+            samples_per_class,
             "TEST",
             k_shot,
             openai_model,
@@ -446,7 +520,7 @@ if __name__ == "__main__":
         )
     else:
         run_kappa_calculation(
-            args.samples_per_class,
+            samples_per_class,
             agreement,
             k_shot,
             openai_model,

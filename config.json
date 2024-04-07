@@ -1,16 +1,16 @@
 {
     "system": {
         "log_level": "DEBUG",
-        "samples_per_class": 3,
-        "agreement": "sentences_50agree",
+        "samples_per_class": 25,
+        "agreement": "RUN_ALL",
         "api_sleep_min" : 10,
-        "api_sleep_max" : 45
+        "api_sleep_max" : 30
       },
     "data": {
       "base_dir": "./data"
     },
     "model_params": {
-      "k_shot" : 3,
+      "k_shot" : 2,
       "openai": {"openai_model": "gpt-3.5-turbo",
       "temperature": 0.5,
       "max_tokens": 1024,
