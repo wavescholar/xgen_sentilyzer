@@ -110,4 +110,14 @@ def load_finbert_test_set(samples_per_class):
 
     # Combine the sampled rows into a new DataFrame
     sentiment_test_df = sampled_df.reset_index(drop=True)
+
+    # Now rename a column to be consistent
+    sentiment_test_df.rename(columns={"text": "sentence"}, inplace=True)
+
+    # The training data class labels as given by the original data set
+    # do not match the Hugging face dataset -  we need to map
+    label_map_training_data = {"negative": "0", "neutral": "1", "positive": "2"}
+    for i, data in sentiment_test_df.iterrows():
+        sentiment_test_df.at[i, "label"] = label_map_training_data[data["label"]]
+
     return sentiment_test_df

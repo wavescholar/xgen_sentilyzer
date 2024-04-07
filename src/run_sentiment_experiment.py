@@ -87,6 +87,11 @@ def run_kappa_calculation(
     gemini_chat = get_gemini_model(gemini_model)
 
     num_classes = 3
+    num_samples = num_classes * samples_per_class
+    logging.info("num_samples = " + str(num_samples))
+
+    k_shot_samples = k_shot * num_classes
+    logging.info("k_shot_samples = " + str(k_shot_samples))
 
     if agreement != "TEST":
         # Load the Huggingface dataset
@@ -101,10 +106,6 @@ def run_kappa_calculation(
         logging.info(class_distribution)
 
         logging.info("samples_per_class = " + str(samples_per_class))
-
-        num_samples = num_classes * samples_per_class
-
-        k_shot_samples = k_shot * num_classes
 
         # Group the DataFrame by the label column
         grouped_train_df = eval_df.groupby("label")
@@ -141,17 +142,21 @@ def run_kappa_calculation(
         )
     else:
         logging.info("Loading finbert  test data")
-        eval_df = load_finbert_test_set(samples_per_class)
-        # Now rename a column to be consistent
-        eval_df.rename(columns={"text": "sentence"}, inplace=True)
 
-        # The training data class labels as given by the original data set
-        # do not match the Hugging face dataset -  we need to map
-        label_map_training_data = {"negative": "0", "neutral": "1", "positive": "2"}
-        for i, data in eval_df.iterrows():
-            eval_df.at[i, "label"] = label_map_training_data[data["label"]]
+        eval_df = load_finbert_test_set(samples_per_class + num_classes * k_shot)
 
-    logging.info("Head Training data")
+        if k_shot > 0:
+            # Peel off the number needed for k_shot prompt
+            eval_df, k_shot_df = train_test_split(
+                eval_df[["sentence", "label"]],
+                stratify=eval_df["label"],
+                train_size=num_samples,
+                test_size=k_shot_samples,
+            )
+            eval_df = eval_df.reset_index(drop=True)
+            k_shot_df = k_shot_df.reset_index(drop=True)
+
+    logging.info("Head data")
     for i, data in eval_df.iterrows():
         if i > 10:
             break

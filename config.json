@@ -1,7 +1,7 @@
 {
     "system": {
         "log_level": "DEBUG",
-        "samples_per_class": 30,
+        "samples_per_class": 20,
         "agreement": "TEST",
         "api_sleep_min" : 10,
         "api_sleep_max" : 30
@@ -10,7 +10,7 @@
       "base_dir": "./data"
     },
     "model_params": {
-      "k_shot" : 3,
+      "k_shot" : 0,
       "openai": {"openai_model": "gpt-3.5-turbo",
       "temperature": 0.5,
       "max_tokens": 1024,
