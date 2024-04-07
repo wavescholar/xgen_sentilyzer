@@ -364,7 +364,7 @@ def run_kappa_calculation(
         + str(samples_per_class * num_classes)
         + "_kappa_"
         + str("{:.2f}".format(kappa_gemini))
-        + "k_shot_"
+        + "_k-shot_"
         + str(k_shot)
         + ".csv"
     )
@@ -380,7 +380,7 @@ def run_kappa_calculation(
         + str(samples_per_class * num_classes)
         + "_kappa_"
         + str("{:.2f}".format(kappa_openai))
-        + "k_shot_"
+        + "_k-shot_"
         + str(k_shot)
         + ".csv"
     )
@@ -396,7 +396,7 @@ def run_kappa_calculation(
         + str(samples_per_class * num_classes)
         + "_kappa_"
         + str("{:.2f}".format(kappa_finbert))
-        + "k_shot_"
+        + "_k-shot_"
         + str(k_shot)
         + ".csv"
     )
@@ -412,7 +412,7 @@ def run_kappa_calculation(
         + str(samples_per_class * num_classes)
         + "_kappa_"
         + str("{:.2f}".format(kappa_llama))
-        + "k_shot_"
+        + "_k-shot_"
         + str(k_shot)
         + ".csv"
     )
