@@ -23,50 +23,33 @@ import logging
 from datetime import datetime
 from pathlib import Path
 import pandas as pd
-from sklearn.model_selection import train_test_split
 
-from huggingface_utils import load_huggingface_data
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import cohen_kappa_score
+
+from huggingface_utils import load_huggingface_data, prep_huggingface_data
 from finbert_utils import get_finbert_response
 from openai_utils import get_openai_response
 from google_gemini_utils import get_gemini_response, get_gemini_model
 
-from sklearn.metrics import cohen_kappa_score
 
 from finbert_utils import load_finbert_test_set
 
 from llama7b_utils import get_llama_response
 
 now = datetime.now()
-dt_string = now.strftime("%d/%m/%Y %H:%M:%S")
 
 Path("./data").mkdir(parents=True, exist_ok=True)
 base_data_directory = "./data/" + "wavelang_experiment_{:%Y-%m-%d-%H-%M}".format(now)
+
 Path(base_data_directory).mkdir(parents=True, exist_ok=True)
 
-log_file_name = base_data_directory + "/wavelang_{:%Y-%m-%d-%H-%M}.log".format(now)
+from sentylizer_utils import logging_config
 
-logging.basicConfig(
-    filename=log_file_name,
-    level=logging.DEBUG,
-    format="%(asctime)s | %(levelname)-8s | %(lineno)04d | %(message)s",
-    datefmt="%Y-%m-%d %H:%M:%S",
-)
-
-logger = logging.getLogger()
-formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
-
-ch = logging.StreamHandler()
-ch.setLevel(logging.DEBUG)
-ch.setFormatter(formatter)
-logger.addHandler(ch)
-
-logging.debug("wavelang log file ")
+logger = logging_config(base_data_directory=base_data_directory, now=now)
 
 # Mapping from dataset class label to LLM sentiment responses - used by Gemini,OpenAI and the finbert inference
 label_map = {"0": "Negative", "1": "Neutral", "2": "Positive"}
-
-logging.info("date and time =" + dt_string)
-logging.info("---------" + dt_string + "----------")
 
 
 def run_kappa_calculation(
@@ -86,66 +69,24 @@ def run_kappa_calculation(
     """
     gemini_chat = get_gemini_model(gemini_model)
 
-    num_classes = 3
-    num_samples = num_classes * samples_per_class
-    logging.info("num_samples = " + str(num_samples))
-
-    k_shot_samples = k_shot * num_classes
-    logging.info("k_shot_samples = " + str(k_shot_samples))
-
     if agreement != "TEST":
         # Load the Huggingface dataset
         eval_df = load_huggingface_data(agreement=agreement)
 
-        class_distribution = eval_df["label"].value_counts()
-
-        num_classes = len(class_distribution)
-        logging.info("num_classes = " + str(num_classes))
-
-        logging.info("Class distribution")
-        logging.info(class_distribution)
-
-        logging.info("samples_per_class = " + str(samples_per_class))
-
-        # Group the DataFrame by the label column
-        grouped_train_df = eval_df.groupby("label")
-
-        # Sample a specified number of rows from each group
-        random_state = 42  # Set a random state for reproducibility
-        logging.info("random_state = " + str(random_state))
-
-        # Sample the number needed for eval plus the prompt
-        sample_df = grouped_train_df.sample(
-            n=samples_per_class + k_shot, random_state=random_state
-        )
-        eval_df = sample_df.reset_index(drop=True)
-
-        if k_shot > 0:
-            # Peel off the number needed for k_shot prompt
-            eval_df, k_shot_df = train_test_split(
-                eval_df[["sentence", "label"]],
-                stratify=eval_df["label"],
-                train_size=num_samples,
-                test_size=k_shot_samples,
-            )
-            eval_df = eval_df.reset_index(drop=True)
-            k_shot_df = k_shot_df.reset_index(drop=True)
-
-        logging.info("Head eval data")
-        for i, data in eval_df.iterrows():
-            if i > 10:
-                break
-
-        eval_df.to_csv(
-            base_data_directory
-            + "/wavelang_eval_data_{:%Y-%m-%d-%H-%M}.csv".format(now)
+        eval_df, k_shot_df = prep_huggingface_data(
+            eval_df,
+            samples_per_class=samples_per_class,
+            k_shot=k_shot,
+            base_data_directory=base_data_directory,
+            now=now,
         )
     else:
         logging.info("Loading finbert  test data")
-
+        num_classes = 3
         eval_df = load_finbert_test_set(samples_per_class + num_classes * k_shot)
 
         if k_shot > 0:
+            k_shot_samples = k_shot * num_classes
             # Peel off the number needed for k_shot prompt
             eval_df, k_shot_df = train_test_split(
                 eval_df[["sentence", "label"]],
